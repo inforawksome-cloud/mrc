@@ -1,8 +1,8 @@
 {
   "id": "/patroli.html",
-  "name": "Portal Satpam - Vertihouse Sawangan II",
+  "name": "Portal Satpam - Mediterania Regency Cikunir",
   "short_name": "Portal Satpam",
-  "description": "Absensi jaga (check-in/out) untuk petugas keamanan Vertihouse Sawangan II",
+  "description": "Absensi jaga (check-in/out) untuk petugas keamanan Mediterania Regency Cikunir",
   "start_url": "./patroli.html",
   "scope": "./patroli.html",
   "display": "standalone",
