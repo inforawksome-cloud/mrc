@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Jadwal Jaga - Kas IPL Vertihouse Sawangan II</title>
+<title>Jadwal Jaga - Kas IPL Mediterania Regency Cikunir</title>
 <meta name="theme-color" content="#0F4C6E" />
 <link rel="manifest" href="./manifest.json" />
 <link rel="apple-touch-icon" href="./icon-192.png" />
@@ -112,7 +112,7 @@
   </button>
   <div style="flex:1">
     <h1>👮 Jadwal Jaga</h1>
-    <p>Vertihouse Sawangan II</p>
+    <p>Mediterania Regency Cikunir</p>
   </div>
   <button class="back-btn" onclick="location.href='./riwayat-jaga.html'" aria-label="Riwayat absensi jaga" style="font-size:15px;">
     🕒
@@ -155,7 +155,7 @@
     let normalized = digits;
     if(digits.startsWith("0")) normalized = "62" + digits.slice(1);
     else if(!digits.startsWith("62")) normalized = "62" + digits;
-    const pesan = encodeURIComponent("Halo, saya warga Vertihouse Sawangan II.");
+    const pesan = encodeURIComponent("Halo, saya warga Mediterania Regency Cikunir.");
     return `https://wa.me/${normalized}?text=${pesan}`;
   }
 
