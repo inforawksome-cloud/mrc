@@ -1,8 +1,8 @@
 {
   "id": "/index.html",
-  "name": "Kas IPL Vertihouse Sawangan II",
+  "name": "Kas IPL Mediterania Regency Cikunir",
   "short_name": "Kas IPL",
-  "description": "Monitoring pemasukan dan pengeluaran IPL warga Vertihouse Sawangan II",
+  "description": "Monitoring pemasukan dan pengeluaran IPL warga Mediterania Regency Cikunir",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
