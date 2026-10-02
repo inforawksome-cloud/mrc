@@ -171,6 +171,11 @@
     padding:8px 14px; font-size:13px; font-weight:600; font-family:inherit;
   }
   .install-bar .x{background:none; color:var(--teal-100); padding:8px 6px; font-weight:500;}
+
+.menu-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:10px; margin-bottom:14px; }
+.menu-item{ position:relative; display:flex; flex-direction:column; align-items:center; gap:6px; padding:14px 8px; background:var(--card); border:1px solid var(--border); border-radius:16px; text-decoration:none; color:var(--text-1); font-size:12.5px; font-weight:600; text-align:center; }
+.menu-ikon{ font-size:24px; line-height:1; }
+.menu-tag{ position:absolute; top:6px; right:6px; font-size:9.5px; font-weight:700; background:var(--amber-100); color:var(--amber-700); padding:2px 6px; border-radius:6px; }
 </style>
 </head>
 <body>
@@ -199,7 +204,9 @@
 <main>
   <div id="demo-banner" class="demo-banner" style="display:none;"></div>
 
-  <div class="saldo-card">
+  <div id="menu-fitur" class="menu-grid" style="display:none;"></div>
+
+<div class="saldo-card">
     <p class="label">Saldo kas saat ini</p>
     <p class="value mono" id="saldo">Rp -</p>
     <p class="updated" id="updated">Memuat data...</p>
@@ -501,6 +508,30 @@
     };
     document.getElementById("dismiss-install").onclick = () => bar.remove();
   });
+</script>
+
+<script>
+// Menu fitur: dibangun dari sheet FITUR (kolom Aktif = Ya). Skrip terpisah agar tidak mengganggu skrip utama.
+(function () {
+  if (typeof CONFIG === "undefined" || !CONFIG.API_URL || CONFIG.API_URL.indexOf("PASTE_URL") !== -1) return;
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  fetch(CONFIG.API_URL + "?aksi=fitur", { cache: "no-store" })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (!d || !d.success || !d.fitur || !d.fitur.length) return;
+      var el = document.getElementById("menu-fitur");
+      el.innerHTML = d.fitur.map(function (f) {
+        var tag = f.paket === "Gold" ? '<span class="menu-tag">Gold</span>' : "";
+        return '<a class="menu-item" href="./' + encodeURI(f.halaman) + '"><span class="menu-ikon">' + esc(f.ikon) + '</span><span>' + esc(f.nama) + "</span>" + tag + "</a>";
+      }).join("");
+      el.style.display = "grid";
+    })
+    .catch(function () {});
+})();
 </script>
 </body>
 </html>
