@@ -81,6 +81,7 @@ input, select, textarea{
 <main>
   <div class="card" id="kotak-masuk"></div>
   <div class="card" id="form-tambah" style="display:none;"></div>
+  <input type="search" id="cari" placeholder="Cari..." style="display:none; margin-bottom:10px;" />
   <div id="daftar"><p class="kosong">Memuat...</p></div>
 </main>
 <div class="toast" id="toast"></div>
@@ -121,7 +122,7 @@ function gambarMasuk() {
     };
     return;
   }
-  el.innerHTML = '<h2>Masuk untuk menambah data</h2><div class="baris2"><div><label>Kav</label><input type="text" id="in-kav" placeholder="contoh: A1" autocapitalize="characters" autocomplete="off" /></div><div><label>PIN</label><input type="password" id="in-pin" inputmode="numeric" placeholder="PIN" autocomplete="new-password" /></div></div><button class="btn" id="btn-masuk">Masuk</button>';
+  el.innerHTML = '<h2>Masuk dengan Kav dan PIN</h2><div class="baris2"><div><label>Kav</label><input type="text" id="in-kav" placeholder="contoh: A1" autocapitalize="characters" autocomplete="off" /></div><div><label>PIN</label><input type="password" id="in-pin" inputmode="numeric" placeholder="PIN" autocomplete="new-password" /></div></div><button class="btn" id="btn-masuk">Masuk</button>';
   document.getElementById("btn-masuk").onclick = function () {
     var kav = document.getElementById("in-kav").value.trim();
     var pin = document.getElementById("in-pin").value.trim();
@@ -139,11 +140,21 @@ function gambarMasuk() {
   };
 }
 
+function bolehTulis() {
+  return skema.tulis === "warga" || sesi.peran === "admin" || skema.tulis === sesi.peran;
+}
+
+function hariIni() {
+  var d = new Date(), m = d.getMonth() + 1, t = d.getDate();
+  return d.getFullYear() + "-" + (m < 10 ? "0" : "") + m + "-" + (t < 10 ? "0" : "") + t;
+}
+
 function gambarForm() {
   var el = document.getElementById("form-tambah");
-  if (!sesi || !skema) { el.style.display = "none"; return; }
+  if (!sesi || !skema || !bolehTulis()) { el.style.display = "none"; return; }
   var h = "<h2>Tambah data</h2>";
   skema.kolom.forEach(function (c) {
+    if (c.tipe === "sistem") return;
     h += "<label>" + esc(c.label) + (c.wajib ? " *" : "") + "</label>";
     if (c.tipe === "foto") {
       h += '<div class="foto-pilih"><input type="file" accept="image/*" data-foto="' + esc(c.k) + '" /><img id="pratinjau-' + esc(c.k) + '" style="display:none;" alt="" /></div><p class="hint">Foto barang saja, jangan foto orang atau dokumen. Foto dihapus otomatis saat barang selesai atau kedaluwarsa.</p>';
@@ -153,7 +164,8 @@ function gambarForm() {
       h += '<select data-k="' + esc(c.k) + '"><option value="">Pilih...</option>' +
         c.opsi.map(function (o) { return "<option>" + esc(o) + "</option>"; }).join("") + "</select>";
     } else {
-      h += '<input type="text" data-k="' + esc(c.k) + '" maxlength="500" />';
+      var jt = c.tipe === "tanggal" ? "date" : c.tipe === "jam" ? "time" : c.tipe === "angka" ? "number" : "text";
+      h += '<input type="' + jt + '" data-k="' + esc(c.k) + '"' + (jt === "text" ? ' maxlength="500"' : "") + (jt === "number" ? ' min="0" inputmode="numeric"' : "") + (jt === "date" && c.tidakLampau ? ' min="' + hariIni() + '"' : "") + " />";
     }
   });
   h += '<button class="btn" id="btn-kirim">Kirim</button>';
@@ -215,8 +227,23 @@ function linkWa(v) {
   return '<div class="aksi-baris"><a href="https://wa.me/' + wa + '" target="_blank" rel="noopener">Hubungi via WhatsApp</a></div>';
 }
 
+function tombolAksi(r) {
+  if (!sesi) return "";
+  var h = "";
+  (skema.aksi || []).forEach(function (a) {
+    if (a.dari.indexOf(String(r.Status)) === -1) return;
+    var boleh = sesi.peran === "admin" || a.peran === "warga" || a.peran === sesi.peran || (a.peran === "pemilik" && String(r.Kav).toUpperCase() === sesi.kav);
+    if (boleh) h += '<button class="btn kecil" data-aksi="' + esc(a.nama) + '" data-id="' + esc(r.ID) + '">' + esc(a.label) + "</button>";
+  });
+  if (sesi.peran === "admin" || String(r.Kav).toUpperCase() === sesi.kav) {
+    h += '<button class="btn kecil abu" data-aksi="Dihapus" data-id="' + esc(r.ID) + '">Hapus</button>';
+  }
+  return h ? '<div class="aksi-baris">' + h + "</div>" : "";
+}
+
 function gambarDaftar(baris) {
   var el = document.getElementById("daftar");
+  document.getElementById("cari").style.display = (baris && baris.length > 3) ? "block" : "none";
   if (!baris || !baris.length) { el.innerHTML = '<p class="kosong">Belum ada data.</p>'; return; }
   var akhir = skema.statusAkhir;
   el.innerHTML = baris.map(function (r) {
@@ -235,19 +262,23 @@ function gambarDaftar(baris) {
       if (c.k === "kontak") { wa = linkWa(v); return; }
       detail += '<div class="detail">' + esc(c.label) + ": " + esc(v) + "</div>";
     });
-    var selesai = (akhir && String(r.Status) === akhir) || String(r.Status) === "Kedaluwarsa";
+    var selesai = (akhir && String(r.Status) === akhir) || String(r.Status) === "Kedaluwarsa" || !!(skema.statusSelesai && skema.statusSelesai.indexOf(String(r.Status)) >= 0);
     var bisaUbah = sesi && akhir && !selesai && (sesi.peran === "admin" || String(r.Kav).toUpperCase() === sesi.kav);
     var tombol = bisaUbah ? '<div class="aksi-baris"><button class="btn kecil" data-selesai="' + esc(r.ID) + '">Tandai ' + esc(akhir.toLowerCase()) + "</button></div>" : "";
+    if (skema.aksi) tombol = tombolAksi(r);
     return '<div class="item">' + foto + '<p class="judul">' + judul + '<span class="badge' + (selesai ? " akhir" : "") + '">' + esc(r.Status) + "</span></p>" +
       detail + (selesai ? "" : wa) + '<div class="meta">Kav ' + esc(r.Kav) + " &middot; " + esc(r.Waktu) + "</div>" + (selesai ? "" : tombol) + "</div>";
   }).join("");
 }
 
 document.getElementById("daftar").addEventListener("click", function (e) {
-  var b = e.target.closest("[data-selesai]");
+  var b = e.target.closest("[data-selesai], [data-aksi]");
   if (!b || !sesi) return;
+  var statusBaru = b.hasAttribute("data-aksi") ? b.getAttribute("data-aksi") : skema.statusAkhir;
+  var idBaris = b.getAttribute("data-id") || b.getAttribute("data-selesai");
+  if (statusBaru === "Dihapus" && !confirm("Hapus data ini?")) return;
   b.disabled = true;
-  api({ type: "modul", modul: KODE, aksi: "status", kav: sesi.kav, pin: sesi.pin, id: b.getAttribute("data-selesai"), status: skema.statusAkhir }).then(function (d) {
+  api({ type: "modul", modul: KODE, aksi: "status", kav: sesi.kav, pin: sesi.pin, id: idBaris, status: statusBaru }).then(function (d) {
     if (d.success) { toast("Diperbarui"); muat(); }
     else { toast(d.error || "Gagal memperbarui", true); b.disabled = false; }
   }).catch(function () { toast("Gagal terhubung", true); b.disabled = false; });
@@ -273,7 +304,7 @@ function muat() {
   }
   p.then(function (d) {
     if (d.skema) { skema = d.skema; gambarHeader(); }
-    if (d.perluLogin) { gambarForm(); daftar.innerHTML = '<p class="kosong">Masuk dulu untuk melihat data.</p>'; return; }
+    if (d.perluLogin) { if (sesi) { muat(); return; } gambarForm(); daftar.innerHTML = '<p class="kosong">Masuk dulu untuk melihat data.</p>'; return; }
     if (!d.success) { daftar.innerHTML = '<p class="kosong">' + esc(d.error || "Gagal memuat") + "</p>"; return; }
     gambarForm();
     gambarDaftar(d.baris);
@@ -281,6 +312,11 @@ function muat() {
     daftar.innerHTML = '<p class="kosong">Gagal terhubung ke server.</p>';
   }).then(function () { tombol.classList.remove("spin"); });
 }
+
+document.getElementById("cari").oninput = function () {
+  var q = this.value.toLowerCase();
+  document.querySelectorAll("#daftar .item").forEach(function (it) { it.style.display = it.textContent.toLowerCase().indexOf(q) >= 0 ? "" : "none"; });
+};
 
 document.getElementById("btn-kembali").onclick = function () { location.href = "./index.html"; };
 document.getElementById("btn-muat").onclick = muat;
