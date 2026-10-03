@@ -449,6 +449,14 @@
     }).join("");
   }
 
+  var CACHE_KEY = "kasipl-dash-v1";
+  function bacaCacheDash(){
+    try{
+      var o = JSON.parse(localStorage.getItem(CACHE_KEY) || "null");
+      return (o && o.data && o.data.saldo !== undefined) ? o : null;
+    }catch(e){ return null; }
+  }
+
   async function loadData(){
     const refreshBtn = document.getElementById("refresh-btn");
     refreshBtn.classList.add("spin");
@@ -458,15 +466,25 @@
       refreshBtn.classList.remove("spin");
       return;
     }
+    const tersimpan = bacaCacheDash();
+    if(tersimpan){ render(tersimpan.data, false); }
     try{
-      const res = await fetch(CONFIG.API_URL, { cache:"no-store" });
+      const res = await fetch(CONFIG.API_URL + "?cache=1", { cache:"no-store" });
       const data = await res.json();
+      if(!data || data.saldo === undefined) throw new Error("respons tidak valid");
       render(data, false);
+      try{ localStorage.setItem(CACHE_KEY, JSON.stringify({ t: Date.now(), data: data })); }catch(e){}
     }catch(err){
-      render(DEMO_DATA, true);
-      document.getElementById("demo-banner").style.display = "block";
-      document.getElementById("demo-banner").textContent =
-        "Gagal memuat data asli, menampilkan data contoh. Cek koneksi atau URL Apps Script.";
+      if(tersimpan){
+        var bn = document.getElementById("demo-banner");
+        bn.style.display = "block";
+        bn.textContent = "Tidak bisa memperbarui. Menampilkan data terakhir (" + new Date(tersimpan.t).toLocaleString("id-ID") + ").";
+      }else{
+        render(DEMO_DATA, true);
+        document.getElementById("demo-banner").style.display = "block";
+        document.getElementById("demo-banner").textContent =
+          "Gagal memuat data asli, menampilkan data contoh. Cek koneksi atau URL Apps Script.";
+      }
     }finally{
       refreshBtn.classList.remove("spin");
     }
