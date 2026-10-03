@@ -67,6 +67,13 @@ input, select, textarea{
 .foto-pilih input{flex:1; min-width:180px;}
 .foto-pilih img{width:84px; height:84px; object-fit:cover; border-radius:10px; border:1px solid var(--border);}
 .hint{font-size:11.5px; color:var(--text-muted); margin:6px 0 0; line-height:1.4;}
+label{line-height:1.35;}
+input[type=date], input[type=time], input[type=number]{
+  -webkit-appearance:none; appearance:none; display:block; width:100%; min-width:0; max-width:100%;
+  min-height:46px; line-height:1.25; background-color:#fff;
+}
+input[type=date]::-webkit-date-and-time-value, input[type=time]::-webkit-date-and-time-value{ text-align:left; min-height:1.25em; margin:0; }
+input[type=date]::-webkit-datetime-edit, input[type=time]::-webkit-datetime-edit{ padding:0; }
 </style>
 </head>
 <body>
@@ -92,6 +99,17 @@ var KODE = new URLSearchParams(location.search).get("m") || "";
 var skema = null;
 var sesi = null;
 try { sesi = JSON.parse(sessionStorage.getItem("sesi") || "null"); } catch (e) { sesi = null; }
+// Mode tertanam (dipakai Portal Satpam): tanpa header, sesi satpam diingat di perangkat
+var EMBED = new URLSearchParams(location.search).get("embed") === "1";
+if (EMBED) {
+  document.querySelector("header").style.display = "none";
+  if (!sesi) {
+    try {
+      sesi = JSON.parse(localStorage.getItem("sesiSatpam") || "null");
+      if (sesi) sessionStorage.setItem("sesi", JSON.stringify(sesi));
+    } catch (e) { sesi = null; }
+  }
+}
 var demo = !CONFIG.API_URL || CONFIG.API_URL.indexOf("PASTE_URL") !== -1;
 
 function esc(s) {
@@ -118,11 +136,12 @@ function gambarMasuk() {
   if (sesi) {
     el.innerHTML = '<div class="masuk-info"><span>Masuk sebagai <b>' + esc(sesi.kav) + '</b> (' + esc(sesi.peran) + ')</span><button class="btn kecil abu" id="btn-keluar">Keluar</button></div>';
     document.getElementById("btn-keluar").onclick = function () {
-      sessionStorage.removeItem("sesi"); sesi = null; gambarMasuk(); muat();
+      sessionStorage.removeItem("sesi"); localStorage.removeItem("sesiSatpam"); sesi = null; gambarMasuk(); muat();
     };
     return;
   }
   el.innerHTML = '<h2>Masuk dengan Kav dan PIN</h2><div class="baris2"><div><label>Kav</label><input type="text" id="in-kav" placeholder="contoh: A1" autocapitalize="characters" autocomplete="off" /></div><div><label>PIN</label><input type="password" id="in-pin" inputmode="numeric" placeholder="PIN" autocomplete="new-password" /></div></div><button class="btn" id="btn-masuk">Masuk</button>';
+  if (EMBED) document.getElementById("in-kav").value = "SATPAM";
   document.getElementById("btn-masuk").onclick = function () {
     var kav = document.getElementById("in-kav").value.trim();
     var pin = document.getElementById("in-pin").value.trim();
@@ -133,6 +152,7 @@ function gambarMasuk() {
       if (d.success) {
         sesi = { kav: d.kav, pin: pin, peran: d.peran };
         sessionStorage.setItem("sesi", JSON.stringify(sesi));
+        if (EMBED && (d.peran === "satpam" || d.peran === "admin")) localStorage.setItem("sesiSatpam", JSON.stringify(sesi));
         toast("Berhasil masuk");
         gambarMasuk(); muat();
       } else { toast(d.error || "Gagal masuk", true); b.disabled = false; }
@@ -157,7 +177,7 @@ function gambarForm() {
     if (c.tipe === "sistem") return;
     h += "<label>" + esc(c.label) + (c.wajib ? " *" : "") + "</label>";
     if (c.tipe === "foto") {
-      h += '<div class="foto-pilih"><input type="file" accept="image/*" data-foto="' + esc(c.k) + '" /><img id="pratinjau-' + esc(c.k) + '" style="display:none;" alt="" /></div><p class="hint">Foto barang saja, jangan foto orang atau dokumen. Foto dihapus otomatis saat barang selesai atau kedaluwarsa.</p>';
+      h += '<div class="foto-pilih"><input type="file" accept="image/*" data-foto="' + esc(c.k) + '" /><img id="pratinjau-' + esc(c.k) + '" style="display:none;" alt="" /></div><p class="hint">' + esc(c.petunjuk || "Foto barang saja, jangan foto orang atau dokumen. Foto dihapus otomatis saat barang selesai atau kedaluwarsa.") + "</p>";
     } else if (c.tipe === "area") {
       h += '<textarea data-k="' + esc(c.k) + '" rows="3" maxlength="500"></textarea>';
     } else if (c.tipe === "pilihan") {
@@ -267,7 +287,7 @@ function gambarDaftar(baris) {
     var tombol = bisaUbah ? '<div class="aksi-baris"><button class="btn kecil" data-selesai="' + esc(r.ID) + '">Tandai ' + esc(akhir.toLowerCase()) + "</button></div>" : "";
     if (skema.aksi) tombol = tombolAksi(r);
     return '<div class="item">' + foto + '<p class="judul">' + judul + '<span class="badge' + (selesai ? " akhir" : "") + '">' + esc(r.Status) + "</span></p>" +
-      detail + (selesai ? "" : wa) + '<div class="meta">Kav ' + esc(r.Kav) + " &middot; " + esc(r.Waktu) + "</div>" + ((selesai && !skema.aksi) ? "" : tombol) + "</div>";
+      detail + (selesai ? "" : wa) + '<div class="meta">' + (skema.sembunyikanKav ? "Dicatat " : "Kav " + esc(r.Kav) + " &middot; ") + esc(r.Waktu) + "</div>" + ((selesai && !skema.aksi) ? "" : tombol) + "</div>";
   }).join("");
 }
 

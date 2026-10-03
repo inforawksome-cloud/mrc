@@ -129,6 +129,13 @@
   .riwayat-item .tanggal{color:var(--text-muted); font-size:11px;}
 
   .empty{text-align:center; color:var(--text-muted); font-size:13px; padding:16px 0;}
+.tamu-btn{ width:100%; display:flex; align-items:center; gap:12px; padding:14px 16px; border:none; border-radius:14px; background:var(--blue-700); color:#fff; font-family:inherit; font-size:14.5px; font-weight:600; text-align:left; cursor:pointer; }
+.tamu-btn small{ display:block; font-weight:400; opacity:0.85; font-size:12px; margin-top:2px; }
+.tamu-ov{ position:fixed; inset:0; z-index:300; background:#fff; display:none; flex-direction:column; }
+.tamu-ov.buka{ display:flex; }
+.tamu-bar{ display:flex; align-items:center; gap:10px; padding:calc(env(safe-area-inset-top) + 10px) 14px 10px; background:var(--blue-900); color:#fff; font-weight:700; font-size:15px; }
+.tamu-bar button{ margin-left:auto; border:none; background:rgba(255,255,255,0.18); color:#fff; border-radius:10px; padding:8px 14px; font-family:inherit; font-weight:600; font-size:13px; }
+.tamu-ov iframe{ flex:1; border:0; width:100%; background:#F3F7F5; }
 </style>
 </head>
 <body>
@@ -161,7 +168,11 @@
     <button class="izin-kirim-btn" id="btn-kirim-izin">Kirim Izin</button>
   </div>
 
-  <p class="section-title">Riwayat Absensi Terakhir</p>
+  <p class="section-title">Tamu / Visitor</p>
+<button class="tamu-btn" id="btn-tamu" type="button"><span style="font-size:26px">🚪</span><span>Catat &amp; Lihat Tamu<small>Catat tamu yang datang, tandai pulang, dan lihat daftar tamu</small></span></button>
+<div class="tamu-ov" id="tamu-ov"><div class="tamu-bar"><span>🚪 Tamu / Visitor</span><button id="tamu-tutup" type="button">Tutup</button></div><iframe id="tamu-frame" title="Tamu / Visitor"></iframe></div>
+
+<p class="section-title">Riwayat Absensi Terakhir</p>
   <div id="riwayat-list"><p class="empty">Memuat...</p></div>
 </main>
 
@@ -395,6 +406,20 @@
         .then((reg) => reg.update());
     });
   }
+</script>
+<script>
+// Tamu / Visitor: membuka halaman modul dalam layar penuh (mode tertanam)
+(function () {
+  var ov = document.getElementById("tamu-ov"), fr = document.getElementById("tamu-frame");
+  document.getElementById("btn-tamu").onclick = function () {
+    fr.src = "./modul.html?m=visitor&embed=1&t=" + Date.now();
+    ov.classList.add("buka");
+  };
+  document.getElementById("tamu-tutup").onclick = function () {
+    ov.classList.remove("buka");
+    fr.src = "about:blank";
+  };
+})();
 </script>
 </body>
 </html>
