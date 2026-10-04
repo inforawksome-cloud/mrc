@@ -75,6 +75,10 @@ input[type=date], input[type=time], input[type=number]{
 }
 input[type=date]::-webkit-date-and-time-value, input[type=time]::-webkit-date-and-time-value{ text-align:left; min-height:1.25em; margin:0; }
 input[type=date]::-webkit-datetime-edit, input[type=time]::-webkit-datetime-edit{ padding:0; }
+.foto-thumb{float:left; width:88px; height:88px; object-fit:cover; border-radius:12px; margin:0 12px 8px 0; background:#E6EEEB;}
+.item::after{content:""; display:table; clear:both;}
+.aksi-baris{clear:both;}
+body.embed .aksi-baris .btn{padding:12px 22px; font-size:15px; min-height:46px;}
 </style>
 </head>
 <body>
@@ -104,6 +108,7 @@ try { sesi = JSON.parse(sessionStorage.getItem("sesi") || "null"); } catch (e) {
 var EMBED = new URLSearchParams(location.search).get("embed") === "1";
 if (EMBED) {
   document.querySelector("header").style.display = "none";
+  document.body.classList.add("embed");
   sesi = { kav: "SATPAM", pin: "", peran: "satpam" };
   try { localStorage.removeItem("sesiSatpam"); } catch (e) {}
 }
@@ -195,17 +200,37 @@ function gambarForm() {
     inp.onchange = function () {
       var k = inp.getAttribute("data-foto");
       var f = inp.files && inp.files[0];
-      delete fotoTerpilih[k];
+      delete fotoTerpilih[k]; thumbTerpilih = "";
       var pr = document.getElementById("pratinjau-" + k);
       if (!f) { pr.style.display = "none"; return; }
       if (f.type && f.type.indexOf("image/") !== 0) { toast("Pilih berkas gambar", true); inp.value = ""; return; }
-      kompres(f, 1000).then(function (d) { fotoTerpilih[k] = d; pr.src = d; pr.style.display = "block"; })
+      kompres(f, 1000).then(function (d) { fotoTerpilih[k] = d; pr.src = d; pr.style.display = "block"; return kecilkan(d, 110).then(function (th) { thumbTerpilih = th; }); })
         .catch(function () { toast("Foto tidak bisa dibaca", true); inp.value = ""; });
     };
   });
 }
 
 var fotoTerpilih = {};
+var thumbTerpilih = "";
+
+// Foto kecil (sisi terpanjang 110 px, ~3-6 KB) untuk daftar Portal Satpam
+function kecilkan(dataUrl, maks) {
+  return new Promise(function (resolve) {
+    var img = new Image();
+    img.onload = function () {
+      var s = Math.min(1, maks / Math.max(img.width, img.height));
+      var c = document.createElement("canvas");
+      c.width = Math.max(1, Math.round(img.width * s));
+      c.height = Math.max(1, Math.round(img.height * s));
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      var q = 0.55, d = c.toDataURL("image/jpeg", q);
+      while (d.length > 9000 && q > 0.25) { q -= 0.1; d = c.toDataURL("image/jpeg", q); }
+      resolve(d.length <= 12000 ? d : "");
+    };
+    img.onerror = function () { resolve(""); };
+    img.src = dataUrl;
+  });
+}
 
 function kompres(file, maks) {
   return new Promise(function (resolve, reject) {
@@ -231,6 +256,7 @@ function kirim() {
   var data = {};
   document.querySelectorAll("#form-tambah [data-k]").forEach(function (f) { data[f.getAttribute("data-k")] = f.value; });
   Object.keys(fotoTerpilih).forEach(function (k) { data[k] = fotoTerpilih[k]; });
+  if (skema.thumb && thumbTerpilih && Object.keys(fotoTerpilih).length) data.thumb = thumbTerpilih;
   var b = document.getElementById("btn-kirim"); b.disabled = true; b.textContent = "Mengirim...";
   api({ type: "modul", modul: KODE, aksi: "tambah", kav: sesi.kav, pin: sesi.pin, data: data }).then(function (d) {
     if (d.success) { toast("Tersimpan"); muat(); }
@@ -271,6 +297,9 @@ function gambarDaftar(baris) {
     if (kf && /^[A-Za-z0-9_-]{10,}$/.test(String(r[kf.k] || ""))) {
       var fid = String(r[kf.k]);
       foto = '<a href="https://drive.google.com/thumbnail?id=' + fid + '&amp;sz=w1600" target="_blank" rel="noopener"><img class="foto" loading="lazy" alt="" src="https://drive.google.com/thumbnail?id=' + fid + '&amp;sz=w600" onerror="this.parentNode.style.display=&#39;none&#39;" /></a>';
+    }
+    if (!foto && r.thumb && /^data:image\/jpeg;base64,[A-Za-z0-9+\/=]+$/.test(String(r.thumb))) {
+      foto = '<img class="foto-thumb" alt="Foto tamu" src="' + r.thumb + '">';
     }
     var detail = "", wa = "";
     skema.kolom.slice(1).forEach(function (c) {
