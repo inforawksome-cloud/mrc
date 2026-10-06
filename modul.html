@@ -79,6 +79,9 @@ input[type=date]::-webkit-datetime-edit, input[type=time]::-webkit-datetime-edit
 .item::after{content:""; display:table; clear:both;}
 .aksi-baris{clear:both;}
 body.embed .aksi-baris .btn{padding:12px 22px; font-size:15px; min-height:46px;}
+a.btn{display:inline-block; text-decoration:none; text-align:center;}
+.catatan-pinjam{background:#E1F5EE; color:#085041; border-radius:12px; padding:10px 12px; margin:0 0 10px; font-size:13px; line-height:1.4;}
+.catatan-pinjam a{color:#0F6E56; font-weight:600;}
 </style>
 </head>
 <body>
@@ -183,6 +186,8 @@ function gambarForm() {
       h += '<div class="foto-pilih"><input type="file" accept="image/*" data-foto="' + esc(c.k) + '" /><img id="pratinjau-' + esc(c.k) + '" style="display:none;" alt="" /></div><p class="hint">' + esc(c.petunjuk || "Foto barang saja, jangan foto orang atau dokumen. Foto dihapus otomatis saat barang selesai atau kedaluwarsa.") + "</p>";
     } else if (c.tipe === "area") {
       h += '<textarea data-k="' + esc(c.k) + '" rows="3" maxlength="500"></textarea>';
+    } else if (c.tipe === "aset") {
+      h += '<select data-k="' + esc(c.k) + '"><option value="">Pilih aset...</option>' + (c.opsi || []).map(function (o) { return '<option value="' + esc(o.v) + '">' + esc(o.l) + "</option>"; }).join("") + "</select>";
     } else if (c.tipe === "pilihan") {
       h += '<select data-k="' + esc(c.k) + '"><option value="">Pilih...</option>' +
         c.opsi.map(function (o) { return "<option>" + esc(o) + "</option>"; }).join("") + "</select>";
@@ -212,6 +217,32 @@ function gambarForm() {
 
 var fotoTerpilih = {};
 var thumbTerpilih = "";
+
+function hariIni() {
+  var d = new Date();
+  return d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2);
+}
+
+// Catatan di atas daftar Inventaris Aset: cara meminjam
+function catatanAset() {
+  if (KODE !== "aset") return "";
+  if (!sesi) return '<div class="catatan-pinjam">Masuk dengan Kav dan PIN (kotak di atas) untuk meminjam aset.</div>';
+  return '<div class="catatan-pinjam">Tekan <b>Pinjam</b> pada aset yang dibutuhkan. <a href="modul.html?m=pinjamaset">Lihat pinjaman saya</a></div>';
+}
+
+// Formulir Peminjaman Aset: isi awal aset (dari tombol Pinjam), tanggal ambil hari ini, jumlah 1
+function isiAwalPinjam() {
+  if (KODE !== "pinjamaset") return;
+  var f = document.getElementById("form-tambah");
+  if (!f || f.style.display === "none") return;
+  var sel = f.querySelector('[data-k="aset_id"]'), tA = f.querySelector('[data-k="tgl_ambil"]'), jm = f.querySelector('[data-k="jumlah"]');
+  var pre = new URLSearchParams(location.search).get("aset");
+  if (sel && pre && !sel.value) sel.value = pre;
+  if (tA && !tA.value) tA.value = hariIni();
+  if (jm && !jm.value) jm.value = "1";
+}
+var gambarFormAsli = gambarForm;
+gambarForm = function () { gambarFormAsli(); isiAwalPinjam(); };
 
 // Foto kecil (sisi terpanjang 110 px, ~3-6 KB) untuk daftar Portal Satpam
 function kecilkan(dataUrl, maks) {
@@ -290,7 +321,7 @@ function gambarDaftar(baris) {
   document.getElementById("cari").style.display = (baris && baris.length > 3) ? "block" : "none";
   if (!baris || !baris.length) { el.innerHTML = '<p class="kosong">Belum ada data.</p>'; return; }
   var akhir = skema.statusAkhir;
-  el.innerHTML = baris.map(function (r) {
+  el.innerHTML = catatanAset() + baris.map(function (r) {
     var judul = esc(r[skema.kolom[0].k]);
     var foto = "";
     var kf = skema.kolom.filter(function (c) { return c.tipe === "foto"; })[0];
@@ -305,7 +336,7 @@ function gambarDaftar(baris) {
     skema.kolom.slice(1).forEach(function (c) {
       var v = r[c.k];
       if (v === "" || v == null) return;
-      if (c.tipe === "foto") return;
+      if (c.tipe === "foto" || c.tipe === "aset") return;
       if (c.k === "kontak") { wa = linkWa(v); return; }
       detail += '<div class="detail">' + esc(c.label) + ": " + esc(v) + "</div>";
     });
@@ -313,7 +344,18 @@ function gambarDaftar(baris) {
     var bisaUbah = sesi && akhir && !selesai && (sesi.peran === "admin" || String(r.Kav).toUpperCase() === sesi.kav);
     var tombol = bisaUbah ? '<div class="aksi-baris"><button class="btn kecil" data-selesai="' + esc(r.ID) + '">Tandai ' + esc(akhir.toLowerCase()) + "</button></div>" : "";
     if (skema.aksi) tombol = tombolAksi(r);
-    return '<div class="item">' + foto + '<p class="judul">' + judul + '<span class="badge' + (selesai ? " akhir" : "") + '">' + esc(r.Status) + "</span></p>" +
+    if (KODE === "aset") {
+      detail += '<div class="detail">Tersedia: ' + esc(r.tersedia) + " dari " + esc(r.jumlah) + (Number(r.dipinjam) ? " (sedang dipinjam " + esc(r.dipinjam) + ")" : "") + "</div>";
+      if (sesi) {
+        var pinjam = Number(r.tersedia) > 0 ? '<a class="btn kecil" href="modul.html?m=pinjamaset&aset=' + encodeURIComponent(r.ID) + '">Pinjam</a>' : '<span class="btn kecil abu" style="opacity:0.6">Habis</span>';
+        tombol = tombol ? tombol.replace('<div class="aksi-baris">', '<div class="aksi-baris">' + pinjam) : '<div class="aksi-baris">' + pinjam + "</div>";
+      }
+    }
+    var telat = "";
+    if (KODE === "pinjamaset" && String(r.Status) === "Dipinjam" && String(r.tgl_kembali || "") && String(r.tgl_kembali) < hariIni()) {
+      telat = ' <span class="badge" style="background:#FDE8E8;color:#9B1C1C">Lewat tempo</span>';
+    }
+    return '<div class="item">' + foto + '<p class="judul">' + judul + '<span class="badge' + (selesai ? " akhir" : "") + '">' + esc(r.Status) + "</span>" + telat + "</p>" +
       detail + (selesai ? "" : wa) + '<div class="meta">' + (skema.sembunyikanKav ? "Dicatat " : "Kav " + esc(r.Kav) + " &middot; ") + esc(r.Waktu) + "</div>" + ((selesai && !skema.aksi) ? "" : tombol) + "</div>";
   }).join("");
 }
